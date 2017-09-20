@@ -33,7 +33,7 @@ class GitVersionControlSystemSpec extends Specification {
     GitRepository repo = new GitRepository(tmpDir)
 
     @Rule
-    TemporaryGitRepository repo2 = new TemporaryGitRepository("otherRepo", tmpDir)
+    GitRepository repo2 = new GitRepository("otherRepo", tmpDir)
 
     def setup() {
         gitVcs = new GitVersionControlSystem()
