@@ -63,7 +63,6 @@ import org.gradle.api.internal.artifacts.repositories.resolver.ExternalResourceA
 import org.gradle.api.internal.artifacts.repositories.transport.RepositoryTransport;
 import org.gradle.api.internal.artifacts.repositories.transport.RepositoryTransportFactory;
 import org.gradle.api.internal.artifacts.vcs.VcsDependencyResolver;
-import org.gradle.api.internal.artifacts.vcs.VcsResolverProviderFactory;
 import org.gradle.api.internal.file.FileLookup;
 import org.gradle.api.internal.file.TemporaryFileProvider;
 import org.gradle.api.internal.file.TmpDirTemporaryFileProvider;
@@ -327,14 +326,10 @@ class DependencyManagementBuildScopeServices {
         return new ProjectDependencyResolver(localComponentRegistry, componentIdentifierFactory);
     }
 
-    ResolverProviderFactory createProjectResolverProviderFactory(final ProjectDependencyResolver resolver) {
-        return new ProjectResolverProviderFactory(resolver);
-    }
+    private static class DefaultResolverProviderFactory implements ResolverProviderFactory {
+        private final VcsDependencyResolver resolver;
 
-    private static class ProjectResolverProviderFactory implements ResolverProviderFactory {
-        private final ProjectDependencyResolver resolver;
-
-        public ProjectResolverProviderFactory(ProjectDependencyResolver resolver) {
+        private DefaultResolverProviderFactory(VcsDependencyResolver resolver) {
             this.resolver = resolver;
         }
 
@@ -349,15 +344,14 @@ class DependencyManagementBuildScopeServices {
         }
     }
 
-    VcsDependencyResolver createVcsDependencyResolver(ServiceRegistry serviceRegistry, LocalComponentRegistry localComponentRegistry, ProjectRegistry<ProjectInternal> projectRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
+    VcsDependencyResolver createVcsDependencyResolver(ProjectDependencyResolver projectDependencyResolver, ServiceRegistry serviceRegistry, LocalComponentRegistry localComponentRegistry, ProjectRegistry<ProjectInternal> projectRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
         // TODO: Explode?
         // TODO: Share working directories across included builds
         File rootProjectBuildDir = projectRegistry.getRootProject().getBuildDir();
-        return new VcsDependencyResolver(serviceRegistry, rootProjectBuildDir, localComponentRegistry, vcsMappingsInternal, vcsMappingFactory, versionControlSystemFactory);
+        return new VcsDependencyResolver(serviceRegistry, rootProjectBuildDir, projectDependencyResolver, localComponentRegistry, vcsMappingsInternal, vcsMappingFactory, versionControlSystemFactory);
     }
 
-    ResolverProviderFactory createVcsResolverProviderFactory(VcsDependencyResolver resolver, VcsMappingsInternal vcsMappingsInternal) {
-        // TODO: There isn't an inherent ordering between the two ResolverProviderFactory's
-        return new VcsResolverProviderFactory(resolver, vcsMappingsInternal);
+    ResolverProviderFactory createVcsResolverProviderFactory(VcsDependencyResolver resolver) {
+        return new DefaultResolverProviderFactory(resolver);
     }
 }
