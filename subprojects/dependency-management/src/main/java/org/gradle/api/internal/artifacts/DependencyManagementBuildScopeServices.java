@@ -353,6 +353,7 @@ class DependencyManagementBuildScopeServices {
     }
 
     ResolverProviderFactory createVcsResolverProviderFactory(VcsDependencyResolver resolver, VcsMappingsInternal vcsMappingsInternal) {
+        // TODO: There isn't an inherent ordering between the two ResolverProviderFactory's
         return new VcsResolverProviderFactory(resolver, vcsMappingsInternal);
     }
 }

@@ -17,11 +17,7 @@
 package org.gradle.api.internal.artifacts.vcs;
 
 import org.gradle.api.artifacts.component.ComponentIdentifier;
-import org.gradle.api.artifacts.component.SourceComponentIdentifier;
-import org.gradle.api.artifacts.component.SourceComponentSelector;
-import org.gradle.api.initialization.ConfigurableIncludedBuild;
-import org.gradle.api.internal.artifacts.DefaultModuleVersionIdentifier;
-import org.gradle.api.internal.artifacts.component.DefaultBuildIdentifier;
+import org.gradle.api.initialization.IncludedBuild;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.ComponentResolvers;
 import org.gradle.api.internal.artifacts.ivyservice.projectmodule.LocalComponentRegistry;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.ArtifactSet;
@@ -31,6 +27,7 @@ import org.gradle.api.internal.component.ArtifactType;
 import org.gradle.composite.internal.IncludedBuildFactory;
 import org.gradle.composite.internal.IncludedBuilds;
 import org.gradle.internal.component.local.model.DefaultProjectComponentIdentifier;
+import org.gradle.internal.component.local.model.DefaultProjectComponentSelector;
 import org.gradle.internal.component.local.model.LocalComponentMetadata;
 import org.gradle.internal.component.model.ComponentArtifactMetadata;
 import org.gradle.internal.component.model.ComponentOverrideMetadata;
@@ -55,10 +52,9 @@ import org.gradle.vcs.internal.VcsMappingInternal;
 import org.gradle.vcs.internal.VcsMappingsInternal;
 import org.gradle.vcs.internal.VersionControlSystemFactory;
 
-import javax.annotation.Nullable;
 import java.io.File;
 
-public class VcsDependencyResolver implements ComponentMetaDataResolver, DependencyToComponentIdResolver, ArtifactResolver, OriginArtifactSelector, ComponentResolvers {
+public class VcsDependencyResolver implements DependencyToComponentIdResolver, ComponentResolvers {
     private final ServiceRegistry serviceRegistry;
     private final VcsMappingsInternal vcsMappingsInternal;
     private final VcsMappingFactory vcsMappingFactory;
@@ -77,131 +73,94 @@ public class VcsDependencyResolver implements ComponentMetaDataResolver, Depende
     }
 
     @Override
-    public DependencyToComponentIdResolver getComponentIdResolver() {
-        return this;
-    }
-
-    @Override
-    public ComponentMetaDataResolver getComponentResolver() {
-        return this;
-    }
-
-    @Override
-    public OriginArtifactSelector getArtifactSelector() {
-        return this;
-    }
-
-    @Override
-    public ArtifactResolver getArtifactResolver() {
-        return this;
-    }
-
-    @Override
     public void resolve(DependencyMetadata dependency, BuildableComponentIdResolveResult result) {
-        if (dependency.getSelector() instanceof SourceComponentSelector) {
-            result.failed(new ModuleVersionResolveException(dependency.getSelector(), "not implemented"));
-            // TODO: Handle selectors that have already been created by some other means
-//            ProjectComponentSelector selector = (ProjectComponentSelector) dependency.getSelector();
-//            ProjectComponentIdentifier project = componentIdentifierFactory.createProjectComponentIdentifier(selector);
-//            LocalComponentMetadata componentMetaData = localComponentRegistry.getComponent(project);
-//            if (componentMetaData == null) {
-//                result.failed(new ModuleVersionResolveException(selector, project + " not found."));
-//            } else {
-//                result.resolved(componentMetaData);
-//            }
-        } else {
-            VcsMappingInternal vcsMappingInternal = getVcsMapping(dependency);
-            if (vcsMappingInternal != null) {
-                // TODO: Hardcoded version of "master"
+        VcsMappingInternal vcsMappingInternal = getVcsMapping(dependency);
+        if (vcsMappingInternal != null) {
+            // TODO: Need failure handling, e.g., cannot clone repository
+            vcsMappingsInternal.getVcsMappingRule().execute(vcsMappingInternal);
+            if (vcsMappingInternal.isUpdated()) {
+                String projectPath = ":"; // TODO: This needs to be extracted by configuring the build. Assume it's from the root for now
+                String buildName = vcsMappingInternal.getOldRequested().getName();
+                VersionControlSpec spec = vcsMappingInternal.getRepository();
+                VersionControlSystem versionControlSystem = versionControlSystemFactory.create(spec);
+                // TODO: We need to manage these working directories so they're shared across projects within a build (if possible)
+                // and have some sort of global cache of cloned repositories.  This should be separate from the global cache.
+                File workingDir = new File(cacheDir, "vcs/" + buildName);
+                versionControlSystem.populate(workingDir, spec);
+                // TODO: Assuming the default branch for the repository
                 // This should be based on something from the repository.
-                // TODO: Need to clone the repository now and get the version information?
-                // TODO: Need failure handling, e.g., cannot clone repository
-                vcsMappingsInternal.getVcsMappingRule().execute(vcsMappingInternal);
-                if (vcsMappingInternal.isUpdated()) {
-                    String version = "master";
-                    String projectPath = ":"; // assume it's from the root
-                    String buildName = vcsMappingInternal.getOldRequested().getName();
-                    result.resolved(DefaultSourceComponentIdentifier.newIdentifier(vcsMappingInternal.getRepository(), projectPath, new DefaultBuildIdentifier(buildName)),
-                        new DefaultModuleVersionIdentifier(vcsMappingInternal.getOldRequested().getGroup(), vcsMappingInternal.getOldRequested().getName(), version));
+                // e.g., versionControlSystem.listVersions(spec)
+                // TODO: Select version based on requested version and tags
+
+                // TODO: This should only happen once, extract this into some kind of coordinator with explicitly included builds
+                IncludedBuilds includedBuilds = serviceRegistry.get(IncludedBuilds.class);
+                IncludedBuildFactory includedBuildFactory = serviceRegistry.get(IncludedBuildFactory.class);
+                LocalComponentRegistry localComponentRegistry = serviceRegistry.get(LocalComponentRegistry.class);
+                IncludedBuild includedBuild = includedBuildFactory.createBuild(workingDir);
+                includedBuilds.registerBuild(includedBuild);
+                // TODO: Populate component registry and implicitly include builds
+                LocalComponentMetadata componentMetaData = localComponentRegistry.getComponent(DefaultProjectComponentIdentifier.newProjectId(includedBuild, projectPath));
+
+                if (componentMetaData == null) {
+                    // TODO: Error
+                    result.failed(new ModuleVersionResolveException(DefaultProjectComponentSelector.newSelector(includedBuild, projectPath), vcsMappingInternal + " not supported yet."));
+                } else {
+                    result.resolved(componentMetaData);
                 }
             }
         }
     }
 
     private VcsMappingInternal getVcsMapping(DependencyMetadata dependency) {
-        if (vcsMappingsInternal.hasRules()) {
+        // TODO: Only perform source dependency resolution when version == latest.integration for now
+        if (vcsMappingsInternal.hasRules() && dependency.getRequested().getVersion().equals("latest.integration")) {
             return vcsMappingFactory.create(dependency.getSelector(), dependency.getRequested());
         }
         return null;
     }
 
     @Override
-    public void resolve(ComponentIdentifier identifier, ComponentOverrideMetadata componentOverrideMetadata, BuildableComponentResolveResult result) {
-        if (isSourceComponentId(identifier)) {
-            SourceComponentIdentifier sourceComponentIdentifier = (SourceComponentIdentifier) identifier;
-            VersionControlSpec spec = sourceComponentIdentifier.getRepository();
-            VersionControlSystem versionControlSystem = versionControlSystemFactory.create(spec);
-            // TODO: We need to manage these working directories so they're shared across projects within a build (if possible)
-            // and have some sort of global cache of cloned repositories
-            File workingDir = new File(cacheDir, "vcs/" + sourceComponentIdentifier.getBuild().getName());
-            versionControlSystem.populate(workingDir, spec);
-            // TODO: This should only happen once
-            IncludedBuilds includedBuilds = serviceRegistry.get(IncludedBuilds.class);
-            IncludedBuildFactory includedBuildFactory = serviceRegistry.get(IncludedBuildFactory.class);
-            LocalComponentRegistry localComponentRegistry = serviceRegistry.get(LocalComponentRegistry.class);
-            ConfigurableIncludedBuild includedBuild = includedBuildFactory.createBuild(workingDir);
-            includedBuilds.registerBuild(includedBuild);
-            // TODO: Populate component registry and implicitly include builds
-            LocalComponentMetadata componentMetaData = localComponentRegistry.getComponent(DefaultProjectComponentIdentifier.newProjectId(includedBuild, ":"));
-            if (componentMetaData == null) {
-                // TODO: Error
-                result.failed(new ModuleVersionResolveException(DefaultSourceComponentSelector.newSelector(spec, sourceComponentIdentifier.getProjectPath(), sourceComponentIdentifier.getBuild().getName()), identifier + " not supported yet."));
-            } else {
-                result.resolved(componentMetaData);
+    public DependencyToComponentIdResolver getComponentIdResolver() {
+        return this;
+    }
+
+    @Override
+    public ComponentMetaDataResolver getComponentResolver() {
+        return new ComponentMetaDataResolver() {
+            @Override
+            public void resolve(ComponentIdentifier identifier, ComponentOverrideMetadata componentOverrideMetadata, BuildableComponentResolveResult result) {
+
             }
-        }
+
+            @Override
+            public boolean isFetchingMetadataCheap(ComponentIdentifier identifier) {
+                return true;
+            }
+        };
     }
 
     @Override
-    public boolean isFetchingMetadataCheap(ComponentIdentifier identifier) {
-        return !isSourceComponentId(identifier);
+    public OriginArtifactSelector getArtifactSelector() {
+        return new OriginArtifactSelector() {
+            @Override
+            public ArtifactSet resolveArtifacts(ComponentResolveMetadata component, ConfigurationMetadata configuration, ArtifactTypeRegistry artifactTypeRegistry, ModuleExclusion exclusions) {
+                return null;
+            }
+        };
     }
 
     @Override
-    public void resolveArtifactsWithType(ComponentResolveMetadata component, ArtifactType artifactType, BuildableArtifactSetResolveResult result) {
-        if (isSourceComponentId(component.getComponentId())) {
-            throw new UnsupportedOperationException("Resolving artifacts by type is not yet supported for source modules");
-        }
-    }
+    public ArtifactResolver getArtifactResolver() {
+        return new ArtifactResolver() {
+            @Override
+            public void resolveArtifactsWithType(ComponentResolveMetadata component, ArtifactType artifactType, BuildableArtifactSetResolveResult result) {
 
-    @Nullable
-    @Override
-    public ArtifactSet resolveArtifacts(ComponentResolveMetadata component, ConfigurationMetadata configuration, ArtifactTypeRegistry artifactTypeRegistry, ModuleExclusion exclusions) {
-        if (isSourceComponentId(component.getComponentId())) {
-            // TODO: Need to resolve artifacts from built projects
-            throw new UnsupportedOperationException("Resolving artifacts is not yet supported for source modules");
-        } else {
-            return null;
-        }
-    }
+            }
 
-    @Override
-    public void resolveArtifact(ComponentArtifactMetadata artifact, ModuleSource moduleSource, BuildableArtifactResolveResult result) {
-//        if (isSourceComponentId(artifact.getComponentId())) {
-            // TODO: Need to resolve artifacts from built projects
-            // This is what ProjectDependencyResolver does
-//            LocalComponentArtifactMetadata projectArtifact = (LocalComponentArtifactMetadata) artifact;
-//
-//            File localArtifactFile = projectArtifact.getFile();
-//            if (localArtifactFile != null) {
-//                result.resolved(localArtifactFile);
-//            } else {
-//                result.notFound(projectArtifact.getId());
-//            }
-//        }
-    }
+            @Override
+            public void resolveArtifact(ComponentArtifactMetadata artifact, ModuleSource moduleSource, BuildableArtifactResolveResult result) {
 
-    private boolean isSourceComponentId(ComponentIdentifier componentId) {
-        return componentId instanceof SourceComponentIdentifier;
+            }
+        };
     }
 }

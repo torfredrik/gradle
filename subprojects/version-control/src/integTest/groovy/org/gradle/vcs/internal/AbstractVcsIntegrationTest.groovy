@@ -29,7 +29,7 @@ abstract class AbstractVcsIntegrationTest extends AbstractIntegrationSpec {
             version = '2.0'
             
             dependencies {
-                compile "org.test:dep:1.0"
+                compile "org.test:dep:latest.integration"
             }
         """
         file("src/main/java/Main.java") << """

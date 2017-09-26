@@ -40,6 +40,24 @@ class VcsMappingsIntegrationTest extends AbstractVcsIntegrationTest {
         file("build/vcs/dep/checkedout").assertIsFile()
     }
 
+    def "only use source repositories when version matches latest.integration"() {
+        settingsFile << """
+            sourceControl {
+                vcsMappings {
+                    withModule("org.test:dep") {
+                        from vcs(DirectoryRepository) {
+                            sourceDir = file("dep")
+                        }
+                    }
+                }
+            }
+        """
+        buildFile.text = buildFile.text.replace("latest.integration", "1.0")
+        expect:
+        fails("assemble")
+        file("build/vcs/dep/checkedout").assertDoesNotExist()
+    }
+
     def "can define and use source repositories with all {}"() {
         settingsFile << """
             sourceControl {
