@@ -105,6 +105,7 @@ import org.gradle.vcs.internal.VcsMappingFactory;
 import org.gradle.vcs.internal.VcsMappingsInternal;
 import org.gradle.vcs.internal.VersionControlSystemFactory;
 
+import java.io.File;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -348,8 +349,11 @@ class DependencyManagementBuildScopeServices {
         }
     }
 
-    VcsDependencyResolver createVcsDependencyResolver(ServiceRegistry serviceRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
-        return new VcsDependencyResolver(serviceRegistry, vcsMappingsInternal, vcsMappingFactory, versionControlSystemFactory);
+    VcsDependencyResolver createVcsDependencyResolver(ServiceRegistry serviceRegistry, ProjectRegistry<ProjectInternal> projectRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
+        // TODO: Explode?
+        // TODO: Share working directories across included builds
+        File rootProjectBuildDir = projectRegistry.getRootProject().getBuildDir();
+        return new VcsDependencyResolver(serviceRegistry, rootProjectBuildDir, vcsMappingsInternal, vcsMappingFactory, versionControlSystemFactory);
     }
 
     ResolverProviderFactory createVcsResolverProviderFactory(VcsDependencyResolver resolver, VcsMappingsInternal vcsMappingsInternal) {

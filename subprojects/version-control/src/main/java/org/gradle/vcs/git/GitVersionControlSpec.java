@@ -65,4 +65,19 @@ public class GitVersionControlSpec implements VersionControlSpec {
     public String getDisplayName() {
         return "Git Repository at " + getUrl();
     }
+
+    @Override
+    public String getRepositoryId() {
+        String host = url.getHost();
+        if (host == null) {
+            host = "local";
+        }
+        return host + "/" + url.getPath();
+    }
+
+    @Override
+    public String getRepoName() {
+        String[] pathParts = url.getPath().split("/");
+        return pathParts[pathParts.length-1];
+    }
 }

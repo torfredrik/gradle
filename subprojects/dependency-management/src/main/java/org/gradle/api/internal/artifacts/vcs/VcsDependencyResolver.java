@@ -47,29 +47,29 @@ import org.gradle.internal.resolve.result.BuildableComponentResolveResult;
 import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.vcs.VersionControlSpec;
 import org.gradle.vcs.VersionControlSystem;
+import org.gradle.vcs.VersionRef;
 import org.gradle.vcs.internal.VcsMappingFactory;
 import org.gradle.vcs.internal.VcsMappingInternal;
 import org.gradle.vcs.internal.VcsMappingsInternal;
 import org.gradle.vcs.internal.VersionControlSystemFactory;
 
 import java.io.File;
+import java.util.Set;
 
 public class VcsDependencyResolver implements DependencyToComponentIdResolver, ComponentResolvers {
     private final ServiceRegistry serviceRegistry;
     private final VcsMappingsInternal vcsMappingsInternal;
     private final VcsMappingFactory vcsMappingFactory;
     private final VersionControlSystemFactory versionControlSystemFactory;
-    private final File cacheDir;
+    private final File baseWorkingDir;
 
     // TODO: This shouldn't reach into ServiceRegistry
-    public VcsDependencyResolver(ServiceRegistry serviceRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
+    public VcsDependencyResolver(ServiceRegistry serviceRegistry, File rootProjectBuildDir, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
         this.serviceRegistry = serviceRegistry;
         this.vcsMappingsInternal = vcsMappingsInternal;
         this.vcsMappingFactory = vcsMappingFactory;
         this.versionControlSystemFactory = versionControlSystemFactory;
-        // TODO: We need to have a "cache" for repositories in the VCS implementation and a working dir "cache" for included builds
-        // This path shouldn't be hardcoded here
-        this.cacheDir = new File("build");
+        this.baseWorkingDir = new File(rootProjectBuildDir, "vcsWorkingDirs");
     }
 
     @Override
@@ -80,13 +80,15 @@ public class VcsDependencyResolver implements DependencyToComponentIdResolver, C
             vcsMappingsInternal.getVcsMappingRule().execute(vcsMappingInternal);
             if (vcsMappingInternal.isUpdated()) {
                 String projectPath = ":"; // TODO: This needs to be extracted by configuring the build. Assume it's from the root for now
-                String buildName = vcsMappingInternal.getOldRequested().getName();
+
                 VersionControlSpec spec = vcsMappingInternal.getRepository();
                 VersionControlSystem versionControlSystem = versionControlSystemFactory.create(spec);
                 // TODO: We need to manage these working directories so they're shared across projects within a build (if possible)
                 // and have some sort of global cache of cloned repositories.  This should be separate from the global cache.
-                File workingDir = new File(cacheDir, "vcs/" + buildName);
-                versionControlSystem.populate(workingDir, spec);
+                Set<VersionRef> versions = versionControlSystem.getAvailableVersions(spec);
+                VersionRef selectedVersion = versions.iterator().next();
+                File dependencyWorkingDir = new File(baseWorkingDir, spec.getRepositoryId() + "/" + selectedVersion.getCanonicalId() + "/" + spec.getRepoName());
+                versionControlSystem.populate(dependencyWorkingDir, selectedVersion, spec);
                 // TODO: Assuming the default branch for the repository
                 // This should be based on something from the repository.
                 // e.g., versionControlSystem.listVersions(spec)
@@ -96,7 +98,7 @@ public class VcsDependencyResolver implements DependencyToComponentIdResolver, C
                 IncludedBuilds includedBuilds = serviceRegistry.get(IncludedBuilds.class);
                 IncludedBuildFactory includedBuildFactory = serviceRegistry.get(IncludedBuildFactory.class);
                 LocalComponentRegistry localComponentRegistry = serviceRegistry.get(LocalComponentRegistry.class);
-                IncludedBuild includedBuild = includedBuildFactory.createBuild(workingDir);
+                IncludedBuild includedBuild = includedBuildFactory.createBuild(dependencyWorkingDir);
                 includedBuilds.registerBuild(includedBuild);
                 // TODO: Populate component registry and implicitly include builds
                 LocalComponentMetadata componentMetaData = localComponentRegistry.getComponent(DefaultProjectComponentIdentifier.newProjectId(includedBuild, projectPath));

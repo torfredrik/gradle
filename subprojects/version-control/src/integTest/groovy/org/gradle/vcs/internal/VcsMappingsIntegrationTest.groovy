@@ -37,7 +37,7 @@ class VcsMappingsIntegrationTest extends AbstractVcsIntegrationTest {
         """
         expect:
         succeeds("assemble")
-        file("build/vcs/dep/checkedout").assertIsFile()
+        assertRepoCheckedOut()
     }
 
     def "only use source repositories when version matches latest.integration"() {
@@ -55,7 +55,7 @@ class VcsMappingsIntegrationTest extends AbstractVcsIntegrationTest {
         buildFile.text = buildFile.text.replace("latest.integration", "1.0")
         expect:
         fails("assemble")
-        file("build/vcs/dep/checkedout").assertDoesNotExist()
+        assertRepoNotCheckedOut("dep")
     }
 
     def "can define and use source repositories with all {}"() {
@@ -74,7 +74,7 @@ class VcsMappingsIntegrationTest extends AbstractVcsIntegrationTest {
         """
         expect:
         succeeds("assemble")
-        file("build/vcs/dep/checkedout").assertIsFile()
+        assertRepoCheckedOut()
     }
 
     def "can define unused vcs mappings"() {
@@ -101,8 +101,8 @@ class VcsMappingsIntegrationTest extends AbstractVcsIntegrationTest {
         """
         expect:
         succeeds("assemble")
-        file("build/vcs/dep/checkedout").assertDoesNotExist()
-        file("build/vcs/does-not-exist/checkedout").assertDoesNotExist()
+        assertRepoNotCheckedOut()
+        assertRepoNotCheckedOut("does-not-exist")
     }
 
     def "last vcs mapping rule wins"() {
@@ -124,7 +124,15 @@ class VcsMappingsIntegrationTest extends AbstractVcsIntegrationTest {
         """
         expect:
         succeeds("assemble")
-        file("build/vcs/dep/checkedout").assertIsFile()
-        file("build/vcs/does-not-exist/checkedout").assertDoesNotExist()
+        assertRepoCheckedOut()
+        assertRepoNotCheckedOut("does-not-exist")
+    }
+
+    void assertRepoCheckedOut(String repoName="dep") {
+        file("build/vcsWorkingDirs/${file(repoName)}/abcdef/$repoName/checkedout").assertIsFile()
+    }
+
+    void assertRepoNotCheckedOut(String repoName="dep") {
+        file("build/vcsWorkingDirs/${file(repoName)}/abcdef/$repoName/checkedout").assertDoesNotExist()
     }
 }

@@ -41,6 +41,8 @@ class GitVcsIntegrationTest extends AbstractVcsIntegrationTest {
         expect:
         succeeds("assemble")
         // Git repo is cloned
-        file("build/vcs/dep/.git").assertExists()
+        file("build/vcsWorkingDirs/local/${repo.url.path}/abcdef/dep/.git").assertExists()
     }
+
+    // TODO: Use HTTP hosting for git repo
 }
