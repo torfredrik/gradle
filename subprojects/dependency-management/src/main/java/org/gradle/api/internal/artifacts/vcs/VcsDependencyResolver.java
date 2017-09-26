@@ -58,14 +58,16 @@ import java.util.Set;
 
 public class VcsDependencyResolver implements DependencyToComponentIdResolver, ComponentResolvers {
     private final ServiceRegistry serviceRegistry;
+    private final LocalComponentRegistry localComponentRegistry;
     private final VcsMappingsInternal vcsMappingsInternal;
     private final VcsMappingFactory vcsMappingFactory;
     private final VersionControlSystemFactory versionControlSystemFactory;
     private final File baseWorkingDir;
 
     // TODO: This shouldn't reach into ServiceRegistry
-    public VcsDependencyResolver(ServiceRegistry serviceRegistry, File rootProjectBuildDir, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
+    public VcsDependencyResolver(ServiceRegistry serviceRegistry, File rootProjectBuildDir, LocalComponentRegistry localComponentRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
         this.serviceRegistry = serviceRegistry;
+        this.localComponentRegistry = localComponentRegistry;
         this.vcsMappingsInternal = vcsMappingsInternal;
         this.vcsMappingFactory = vcsMappingFactory;
         this.versionControlSystemFactory = versionControlSystemFactory;
@@ -76,31 +78,20 @@ public class VcsDependencyResolver implements DependencyToComponentIdResolver, C
     public void resolve(DependencyMetadata dependency, BuildableComponentIdResolveResult result) {
         VcsMappingInternal vcsMappingInternal = getVcsMapping(dependency);
         if (vcsMappingInternal != null) {
-            // TODO: Need failure handling, e.g., cannot clone repository
             vcsMappingsInternal.getVcsMappingRule().execute(vcsMappingInternal);
-            if (vcsMappingInternal.isUpdated()) {
-                String projectPath = ":"; // TODO: This needs to be extracted by configuring the build. Assume it's from the root for now
 
+            // TODO: Need failure handling, e.g., cannot clone repository
+            if (vcsMappingInternal.hasRepository()) {
                 VersionControlSpec spec = vcsMappingInternal.getRepository();
                 VersionControlSystem versionControlSystem = versionControlSystemFactory.create(spec);
-                // TODO: We need to manage these working directories so they're shared across projects within a build (if possible)
-                // and have some sort of global cache of cloned repositories.  This should be separate from the global cache.
-                Set<VersionRef> versions = versionControlSystem.getAvailableVersions(spec);
-                VersionRef selectedVersion = versions.iterator().next();
-                File dependencyWorkingDir = new File(baseWorkingDir, spec.getRepositoryId() + "/" + selectedVersion.getCanonicalId() + "/" + spec.getRepoName());
-                versionControlSystem.populate(dependencyWorkingDir, selectedVersion, spec);
-                // TODO: Assuming the default branch for the repository
-                // This should be based on something from the repository.
-                // e.g., versionControlSystem.listVersions(spec)
-                // TODO: Select version based on requested version and tags
+                VersionRef selectedVersion = selectVersionFromRepository(spec, versionControlSystem);
+                File dependencyWorkingDir = populateWorkingDirectory(spec, versionControlSystem, selectedVersion);
 
                 // TODO: This should only happen once, extract this into some kind of coordinator with explicitly included builds
-                IncludedBuilds includedBuilds = serviceRegistry.get(IncludedBuilds.class);
-                IncludedBuildFactory includedBuildFactory = serviceRegistry.get(IncludedBuildFactory.class);
-                LocalComponentRegistry localComponentRegistry = serviceRegistry.get(LocalComponentRegistry.class);
-                IncludedBuild includedBuild = includedBuildFactory.createBuild(dependencyWorkingDir);
-                includedBuilds.registerBuild(includedBuild);
+                IncludedBuild includedBuild = registerIncludedBuild(dependencyWorkingDir);
+
                 // TODO: Populate component registry and implicitly include builds
+                String projectPath = ":"; // TODO: This needs to be extracted by configuring the build. Assume it's from the root for now
                 LocalComponentMetadata componentMetaData = localComponentRegistry.getComponent(DefaultProjectComponentIdentifier.newProjectId(includedBuild, projectPath));
 
                 if (componentMetaData == null) {
@@ -111,6 +102,28 @@ public class VcsDependencyResolver implements DependencyToComponentIdResolver, C
                 }
             }
         }
+    }
+
+    private IncludedBuild registerIncludedBuild(File dependencyWorkingDir) {
+        IncludedBuilds includedBuilds = serviceRegistry.get(IncludedBuilds.class);
+        IncludedBuildFactory includedBuildFactory = serviceRegistry.get(IncludedBuildFactory.class);
+        IncludedBuild includedBuild = includedBuildFactory.createBuild(dependencyWorkingDir);
+        includedBuilds.registerBuild(includedBuild);
+        return includedBuild;
+    }
+
+    private File populateWorkingDirectory(VersionControlSpec spec, VersionControlSystem versionControlSystem, VersionRef selectedVersion) {
+        // TODO: We need to manage these working directories so they're shared across projects within a build (if possible)
+        // and have some sort of global cache of cloned repositories.  This should be separate from the global cache.
+        File dependencyWorkingDir = new File(baseWorkingDir, spec.getRepositoryId() + "/" + selectedVersion.getCanonicalId() + "/" + spec.getRepoName());
+        versionControlSystem.populate(dependencyWorkingDir, selectedVersion, spec);
+        return dependencyWorkingDir;
+    }
+
+    private VersionRef selectVersionFromRepository(VersionControlSpec spec, VersionControlSystem versionControlSystem) {
+        // TODO: Select version based on requested version and tags
+        Set<VersionRef> versions = versionControlSystem.getAvailableVersions(spec);
+        return versions.iterator().next();
     }
 
     private VcsMappingInternal getVcsMapping(DependencyMetadata dependency) {

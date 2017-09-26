@@ -50,6 +50,7 @@ public class GitVersionControlSystem implements VersionControlSystem {
         }
         GitVersionControlSpec gitSpec = (GitVersionControlSpec) spec;
 
+        // TODO: Assuming the default branch for the repository
         File dbDir = new File(workingDir, ".git");
         if (dbDir.exists() && dbDir.isDirectory()) {
             updateRepo(workingDir, gitSpec);
