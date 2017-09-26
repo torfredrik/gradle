@@ -20,9 +20,6 @@ import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 
 abstract class AbstractVcsIntegrationTest extends AbstractIntegrationSpec {
     def setup() {
-        settingsFile << """
-            import ${DirectoryRepository.canonicalName}
-        """
         buildFile << """
             apply plugin: 'java'
             group = 'org.gradle'
