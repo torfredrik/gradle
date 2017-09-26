@@ -16,40 +16,51 @@
 
 package org.gradle.plugin.use.resolve.internal;
 
+import org.gradle.api.internal.initialization.ClassLoaderScope;
 import org.gradle.api.internal.plugins.PluginDescriptor;
 import org.gradle.api.internal.plugins.PluginDescriptorLocator;
+import org.gradle.api.internal.plugins.PluginInspector;
 import org.gradle.api.internal.plugins.PluginRegistry;
+import org.gradle.internal.Factories;
+import org.gradle.internal.Factory;
+import org.gradle.internal.classpath.ClassPath;
 import org.gradle.plugin.management.internal.InvalidPluginRequestException;
 import org.gradle.plugin.use.PluginId;
 
-public class NotNonCorePluginOnClasspathCheckPluginResolver implements PluginResolver {
+public class AlreadyOnClasspathPluginResolver implements PluginResolver {
+
+    private static final Factory<ClassPath> EMPTY_CLASSPATH_FACTORY = Factories.constant(ClassPath.EMPTY);
 
     private final PluginResolver delegate;
     private final PluginRegistry corePluginRegistry;
     private final PluginDescriptorLocator pluginDescriptorLocator;
+    private final ClassLoaderScope parentLoaderScope;
+    private final PluginInspector pluginInspector;
 
-    public NotNonCorePluginOnClasspathCheckPluginResolver(PluginResolver delegate, PluginRegistry corePluginRegistry, PluginDescriptorLocator pluginDescriptorLocator) {
+    public AlreadyOnClasspathPluginResolver(PluginResolver delegate, PluginRegistry corePluginRegistry, ClassLoaderScope parentLoaderScope, PluginDescriptorLocator pluginDescriptorLocator, PluginInspector pluginInspector) {
         this.delegate = delegate;
         this.corePluginRegistry = corePluginRegistry;
         this.pluginDescriptorLocator = pluginDescriptorLocator;
+        this.parentLoaderScope = parentLoaderScope;
+        this.pluginInspector = pluginInspector;
     }
 
     public void resolve(ContextAwarePluginRequest pluginRequest, PluginResolutionResult result) {
         PluginId pluginId = pluginRequest.getId();
-        if (pluginId == null) {
+        if (pluginId == null || isCorePlugin(pluginId)) {
             delegate.resolve(pluginRequest, result);
         } else {
             PluginDescriptor pluginDescriptor = pluginDescriptorLocator.findPluginDescriptor(pluginId.toString());
-            if (pluginDescriptor == null || isCorePlugin(pluginId)) {
+            if (pluginDescriptor == null) {
                 delegate.resolve(pluginRequest, result);
-            } else {
-                throw new InvalidPluginRequestException(pluginRequest, pluginOnClasspathErrorMessage(pluginId.toString()));
+                return;
             }
+            if (pluginRequest.getVersion() != null) {
+                throw new InvalidPluginRequestException(pluginRequest, "Setting version for plugin '" + pluginId + "' already on the script classpath is not supported");
+            }
+            PluginResolution pluginResolution = new ClassPathPluginResolution(pluginId, parentLoaderScope, EMPTY_CLASSPATH_FACTORY, pluginInspector);
+            result.found("Already on classpath", pluginResolution);
         }
-    }
-
-    public static String pluginOnClasspathErrorMessage(String pluginId) {
-        return String.format("Plugin '%s' is already on the script classpath. Plugins on the script classpath cannot be applied in the plugins {} block. Add  \"apply plugin: '%s'\" to the body of the script to use the plugin.", pluginId, pluginId);
     }
 
     private boolean isCorePlugin(PluginId pluginId) {
