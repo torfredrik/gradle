@@ -16,6 +16,7 @@
 
 package org.gradle.composite.internal;
 
+import com.google.common.collect.Lists;
 import org.gradle.api.artifacts.component.BuildIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.initialization.IncludedBuild;
@@ -26,20 +27,23 @@ import org.gradle.api.internal.composite.CompositeBuildContext;
 import org.gradle.api.internal.project.ProjectRegistry;
 import org.gradle.api.logging.Logging;
 import org.gradle.initialization.DefaultProjectDescriptor;
+import org.gradle.initialization.NestedBuildFactory;
 import org.gradle.internal.component.local.model.DefaultProjectComponentIdentifier;
 import org.gradle.internal.composite.CompositeContextBuilder;
 import org.gradle.util.Path;
 
+import java.io.File;
+import java.util.List;
 import java.util.Set;
 
 public class DefaultCompositeContextBuilder implements CompositeContextBuilder {
     private static final org.gradle.api.logging.Logger LOGGER = Logging.getLogger(DefaultCompositeContextBuilder.class);
-    private final DefaultIncludedBuilds allIncludedBuilds;
+    private final IncludedBuildRegistry includedBuildRegistry;
     private final DefaultProjectPathRegistry projectRegistry;
     private final CompositeBuildContext context;
 
-    public DefaultCompositeContextBuilder(DefaultIncludedBuilds allIncludedBuilds, DefaultProjectPathRegistry projectRegistry, CompositeBuildContext context) {
-        this.allIncludedBuilds = allIncludedBuilds;
+    public DefaultCompositeContextBuilder(IncludedBuildRegistry includedBuildRegistry, DefaultProjectPathRegistry projectRegistry, CompositeBuildContext context) {
+        this.includedBuildRegistry = includedBuildRegistry;
         this.projectRegistry = projectRegistry;
         this.context = context;
     }
@@ -53,19 +57,21 @@ public class DefaultCompositeContextBuilder implements CompositeContextBuilder {
     }
 
     @Override
-    public void addIncludedBuilds(Iterable<IncludedBuild> includedBuilds) {
-        registerProjects(includedBuilds);
-        registerSubstitutions(includedBuilds);
+    public void addIncludedBuilds(Iterable<File> includedBuilds, NestedBuildFactory nestedBuildFactory) {
+        registerSubstitutions(registerProjects(includedBuilds, nestedBuildFactory));
     }
 
-    private void registerProjects(Iterable<IncludedBuild> includedBuilds) {
-        for (IncludedBuild includedBuild : includedBuilds) {
-            allIncludedBuilds.registerBuild(includedBuild);
+    private List<IncludedBuild> registerProjects(Iterable<File> includedBuilds, NestedBuildFactory nestedBuildFactory) {
+        List<IncludedBuild> registeredBuilds = Lists.newArrayList();
+        for (File includedBuildPath : includedBuilds) {
+            IncludedBuild includedBuild = includedBuildRegistry.registerBuild(includedBuildPath, nestedBuildFactory);
+            registeredBuilds.add(includedBuild);
             Path rootProjectPath = Path.ROOT.child(includedBuild.getName());
             BuildIdentifier buildIdentifier = new DefaultBuildIdentifier(includedBuild.getName());
             Set<DefaultProjectDescriptor> allProjects = ((IncludedBuildInternal) includedBuild).getLoadedSettings().getProjectRegistry().getAllProjects();
             registerProjects(rootProjectPath, buildIdentifier, allProjects);
         }
+        return registeredBuilds;
     }
 
     private void registerProjects(Path rootPath, BuildIdentifier buildIdentifier, Set<DefaultProjectDescriptor> allProjects) {

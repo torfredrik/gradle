@@ -22,7 +22,6 @@ import org.gradle.api.internal.composite.CompositeBuildContext;
 import org.gradle.api.internal.initialization.ScriptClassPathInitializer;
 import org.gradle.api.internal.tasks.TaskReferenceResolver;
 import org.gradle.initialization.BuildIdentity;
-import org.gradle.initialization.NestedBuildFactory;
 import org.gradle.internal.composite.CompositeContextBuilder;
 import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.reflect.Instantiator;
@@ -43,24 +42,28 @@ public class CompositeBuildServices extends AbstractPluginServiceRegistry {
     }
 
     private static class CompositeBuildTreeScopeServices {
-        public DefaultIncludedBuilds createIncludedBuilds() {
-            return new DefaultIncludedBuilds();
+        public DefaultIncludedBuildRegistry createIncludedBuildRegistry(IncludedBuildFactory includedBuildFactory) {
+            return new DefaultIncludedBuildRegistry(includedBuildFactory);
         }
 
-        public CompositeBuildContext createCompositeBuildContext(IncludedBuilds includedBuilds, ImmutableModuleIdentifierFactory moduleIdentifierFactory) {
-            return new DefaultBuildableCompositeBuildContext(includedBuilds, moduleIdentifierFactory);
+        public IncludedBuildFactory createIncludedBuildFactory(Instantiator instantiator, StartParameter startParameter, ImmutableModuleIdentifierFactory moduleIdentifierFactory, WorkerLeaseService workerLeaseService) {
+            return new DefaultIncludedBuildFactory(instantiator, startParameter, moduleIdentifierFactory, workerLeaseService);
+        }
+
+        public CompositeBuildContext createCompositeBuildContext(IncludedBuildRegistry includedBuildRegistry, ImmutableModuleIdentifierFactory moduleIdentifierFactory) {
+            return new DefaultBuildableCompositeBuildContext(includedBuildRegistry, moduleIdentifierFactory);
         }
 
         public DefaultProjectPathRegistry createProjectPathRegistry() {
             return new DefaultProjectPathRegistry();
         }
 
-        public CompositeContextBuilder createCompositeContextBuilder(DefaultIncludedBuilds includedBuilds, DefaultProjectPathRegistry projectRegistry, CompositeBuildContext context) {
-            return new DefaultCompositeContextBuilder(includedBuilds, projectRegistry, context);
+        public CompositeContextBuilder createCompositeContextBuilder(IncludedBuildRegistry includedBuildRegistry, DefaultProjectPathRegistry projectRegistry, CompositeBuildContext context) {
+            return new DefaultCompositeContextBuilder(includedBuildRegistry, projectRegistry, context);
         }
 
-        public IncludedBuildControllers createIncludedBuildControllers(ExecutorFactory executorFactory, IncludedBuilds includedBuilds) {
-            return new DefaultIncludedBuildControllers(executorFactory, includedBuilds);
+        public IncludedBuildControllers createIncludedBuildControllers(ExecutorFactory executorFactory, IncludedBuildRegistry includedBuildRegistry) {
+            return new DefaultIncludedBuildControllers(executorFactory, includedBuildRegistry);
         }
 
         public IncludedBuildTaskGraph createIncludedBuildTaskGraph(IncludedBuildControllers controllers) {
@@ -69,16 +72,12 @@ public class CompositeBuildServices extends AbstractPluginServiceRegistry {
     }
 
     private static class CompositeBuildBuildScopeServices {
-        public IncludedBuildFactory createIncludedBuildFactory(Instantiator instantiator, StartParameter startParameter, NestedBuildFactory nestedBuildFactory, ImmutableModuleIdentifierFactory moduleIdentifierFactory, WorkerLeaseService workerLeaseService) {
-            return new DefaultIncludedBuildFactory(instantiator, startParameter, nestedBuildFactory, moduleIdentifierFactory, workerLeaseService);
-        }
-
         public TaskReferenceResolver createResolver(IncludedBuildTaskGraph includedBuilds, BuildIdentity buildIdentity) {
             return new IncludedBuildTaskReferenceResolver(includedBuilds, buildIdentity);
         }
 
-        public ScriptClassPathInitializer createCompositeBuildClasspathResolver(IncludedBuilds includedBuilds, IncludedBuildTaskGraph includedBuildTaskGraph, ServiceRegistry serviceRegistry) {
-            return new CompositeBuildClassPathInitializer(includedBuilds, includedBuildTaskGraph, serviceRegistry);
+        public ScriptClassPathInitializer createCompositeBuildClasspathResolver(IncludedBuildRegistry includedBuildRegistry, IncludedBuildTaskGraph includedBuildTaskGraph, ServiceRegistry serviceRegistry) {
+            return new CompositeBuildClassPathInitializer(includedBuildRegistry, includedBuildTaskGraph, serviceRegistry);
         }
     }
 

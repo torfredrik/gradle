@@ -16,6 +16,13 @@
 
 package org.gradle.vcs;
 
+import org.gradle.api.Incubating;
+
+/**
+ * Version ref
+ * @since 4.3
+ */
+@Incubating
 public interface VersionRef {
     // TODO: Better types
     String getVersion();

@@ -20,8 +20,8 @@ import org.gradle.api.initialization.IncludedBuild;
 import org.gradle.api.internal.artifacts.ivyservice.ivyresolve.ComponentResolvers;
 import org.gradle.api.internal.artifacts.ivyservice.projectmodule.LocalComponentRegistry;
 import org.gradle.api.internal.artifacts.ivyservice.projectmodule.ProjectDependencyResolver;
-import org.gradle.composite.internal.IncludedBuildFactory;
-import org.gradle.composite.internal.IncludedBuilds;
+import org.gradle.composite.internal.IncludedBuildRegistry;
+import org.gradle.initialization.NestedBuildFactory;
 import org.gradle.internal.component.local.model.DefaultProjectComponentIdentifier;
 import org.gradle.internal.component.local.model.DefaultProjectComponentSelector;
 import org.gradle.internal.component.local.model.LocalComponentMetadata;
@@ -32,7 +32,6 @@ import org.gradle.internal.resolve.resolver.ComponentMetaDataResolver;
 import org.gradle.internal.resolve.resolver.DependencyToComponentIdResolver;
 import org.gradle.internal.resolve.resolver.OriginArtifactSelector;
 import org.gradle.internal.resolve.result.BuildableComponentIdResolveResult;
-import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.vcs.VersionControlSpec;
 import org.gradle.vcs.VersionControlSystem;
 import org.gradle.vcs.VersionRef;
@@ -45,23 +44,25 @@ import java.io.File;
 import java.util.Set;
 
 public class VcsDependencyResolver implements DependencyToComponentIdResolver, ComponentResolvers {
-    private final ServiceRegistry serviceRegistry;
     private final ProjectDependencyResolver projectDependencyResolver;
+    private final NestedBuildFactory nestedBuildFactory;
     private final LocalComponentRegistry localComponentRegistry;
     private final VcsMappingsInternal vcsMappingsInternal;
     private final VcsMappingFactory vcsMappingFactory;
     private final VersionControlSystemFactory versionControlSystemFactory;
     private final File baseWorkingDir;
+    private final IncludedBuildRegistry includedBuildRegistry;
 
     // TODO: This shouldn't reach into ServiceRegistry
-    public VcsDependencyResolver(ServiceRegistry serviceRegistry, File rootProjectBuildDir, ProjectDependencyResolver projectDependencyResolver, LocalComponentRegistry localComponentRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
-        this.serviceRegistry = serviceRegistry;
+    public VcsDependencyResolver(IncludedBuildRegistry includedBuildRegistry, File sharedWorkingDir, ProjectDependencyResolver projectDependencyResolver, NestedBuildFactory nestedBuildFactory, LocalComponentRegistry localComponentRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
+        this.includedBuildRegistry = includedBuildRegistry;
         this.projectDependencyResolver = projectDependencyResolver;
+        this.nestedBuildFactory = nestedBuildFactory;
         this.localComponentRegistry = localComponentRegistry;
         this.vcsMappingsInternal = vcsMappingsInternal;
         this.vcsMappingFactory = vcsMappingFactory;
         this.versionControlSystemFactory = versionControlSystemFactory;
-        this.baseWorkingDir = new File(rootProjectBuildDir, "vcsWorkingDirs");
+        this.baseWorkingDir = new File(sharedWorkingDir, "vcsWorkingDirs");
     }
 
     @Override
@@ -77,8 +78,7 @@ public class VcsDependencyResolver implements DependencyToComponentIdResolver, C
                 VersionRef selectedVersion = selectVersionFromRepository(spec, versionControlSystem);
                 File dependencyWorkingDir = populateWorkingDirectory(spec, versionControlSystem, selectedVersion);
 
-                // TODO: This should only happen once, extract this into some kind of coordinator with explicitly included builds
-                IncludedBuild includedBuild = registerIncludedBuild(dependencyWorkingDir);
+                IncludedBuild includedBuild = includedBuildRegistry.registerBuild(dependencyWorkingDir, nestedBuildFactory);
 
                 // TODO: Populate component registry and implicitly include builds
                 String projectPath = ":"; // TODO: This needs to be extracted by configuring the build. Assume it's from the root for now
@@ -94,14 +94,6 @@ public class VcsDependencyResolver implements DependencyToComponentIdResolver, C
         } else {
             projectDependencyResolver.resolve(dependency, result);
         }
-    }
-
-    private IncludedBuild registerIncludedBuild(File dependencyWorkingDir) {
-        IncludedBuilds includedBuilds = serviceRegistry.get(IncludedBuilds.class);
-        IncludedBuildFactory includedBuildFactory = serviceRegistry.get(IncludedBuildFactory.class);
-        IncludedBuild includedBuild = includedBuildFactory.createBuild(dependencyWorkingDir);
-        includedBuilds.registerBuild(includedBuild);
-        return includedBuild;
     }
 
     private File populateWorkingDirectory(VersionControlSpec spec, VersionControlSystem versionControlSystem, VersionRef selectedVersion) {

@@ -16,12 +16,17 @@
 
 package org.gradle.composite.internal;
 
+import org.gradle.api.initialization.ConfigurableIncludedBuild;
 import org.gradle.api.initialization.IncludedBuild;
+import org.gradle.initialization.NestedBuildFactory;
 
-import java.util.Collection;
+import java.io.File;
+import java.util.Map;
 
-public interface IncludedBuilds {
-    Collection<IncludedBuild> getBuilds();
+public interface IncludedBuildRegistry {
+    boolean hasIncludedBuilds();
+    Map<File, IncludedBuild> getIncludedBuilds();
+    ConfigurableIncludedBuild registerBuild(File buildDirectory, NestedBuildFactory nestedBuildFactory);
+
     IncludedBuild getBuild(String name);
-    void registerBuild(IncludedBuild build);
 }

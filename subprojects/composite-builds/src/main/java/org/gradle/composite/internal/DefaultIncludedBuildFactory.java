@@ -38,15 +38,13 @@ import java.util.Set;
 public class DefaultIncludedBuildFactory implements IncludedBuildFactory, Stoppable {
     private final Instantiator instantiator;
     private final StartParameter startParameter;
-    private final NestedBuildFactory nestedBuildFactory;
     private final Set<GradleLauncher> launchers = Sets.newHashSet();
     private final ImmutableModuleIdentifierFactory moduleIdentifierFactory;
     private final WorkerLeaseService workerLeaseService;
 
-    public DefaultIncludedBuildFactory(Instantiator instantiator, StartParameter startParameter, NestedBuildFactory nestedBuildFactory, ImmutableModuleIdentifierFactory moduleIdentifierFactory, WorkerLeaseService workerLeaseService) {
+    public DefaultIncludedBuildFactory(Instantiator instantiator, StartParameter startParameter, ImmutableModuleIdentifierFactory moduleIdentifierFactory, WorkerLeaseService workerLeaseService) {
         this.instantiator = instantiator;
         this.startParameter = startParameter;
-        this.nestedBuildFactory = nestedBuildFactory;
         this.moduleIdentifierFactory = moduleIdentifierFactory;
         this.workerLeaseService = workerLeaseService;
     }
@@ -64,13 +62,10 @@ public class DefaultIncludedBuildFactory implements IncludedBuildFactory, Stoppa
         if (!new File(settings.getSettingsDir(), Settings.DEFAULT_SETTINGS_FILE).exists()) {
             throw new InvalidUserDataException(String.format("Included build '%s' must have a '%s' file.", includedBuild.getName(), Settings.DEFAULT_SETTINGS_FILE));
         }
-        if (!settings.getIncludedBuilds().isEmpty()) {
-            throw new InvalidUserDataException(String.format("Included build '%s' cannot have included builds.", includedBuild.getName()));
-        }
     }
 
     @Override
-    public ConfigurableIncludedBuild createBuild(File buildDirectory) {
+    public ConfigurableIncludedBuild createBuild(File buildDirectory, NestedBuildFactory nestedBuildFactory) {
         validateBuildDirectory(buildDirectory);
         Factory<GradleLauncher> factory = new ContextualGradleLauncherFactory(buildDirectory, nestedBuildFactory, startParameter);
         DefaultIncludedBuild includedBuild = instantiator.newInstance(DefaultIncludedBuild.class, buildDirectory, factory, moduleIdentifierFactory, workerLeaseService.getCurrentWorkerLease());

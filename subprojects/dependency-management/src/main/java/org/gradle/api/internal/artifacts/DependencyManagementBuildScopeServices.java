@@ -79,8 +79,10 @@ import org.gradle.cache.internal.CacheScopeMapping;
 import org.gradle.cache.internal.GeneratedGradleJarCache;
 import org.gradle.cache.internal.ProducerGuard;
 import org.gradle.cache.internal.VersionStrategy;
+import org.gradle.composite.internal.IncludedBuildRegistry;
 import org.gradle.initialization.BuildIdentity;
 import org.gradle.initialization.DefaultBuildIdentity;
+import org.gradle.initialization.NestedBuildFactory;
 import org.gradle.initialization.ProjectAccessListener;
 import org.gradle.internal.component.external.model.ModuleComponentArtifactMetadata;
 import org.gradle.internal.installation.CurrentGradleInstallation;
@@ -344,11 +346,11 @@ class DependencyManagementBuildScopeServices {
         }
     }
 
-    VcsDependencyResolver createVcsDependencyResolver(ProjectDependencyResolver projectDependencyResolver, ServiceRegistry serviceRegistry, LocalComponentRegistry localComponentRegistry, ProjectRegistry<ProjectInternal> projectRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
+    VcsDependencyResolver createVcsDependencyResolver(ProjectDependencyResolver projectDependencyResolver, NestedBuildFactory nestedBuildFactory, IncludedBuildRegistry includedBuildRegistry, LocalComponentRegistry localComponentRegistry, ProjectRegistry<ProjectInternal> projectRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
         // TODO: Explode?
         // TODO: Share working directories across included builds
-        File rootProjectBuildDir = projectRegistry.getRootProject().getBuildDir();
-        return new VcsDependencyResolver(serviceRegistry, rootProjectBuildDir, projectDependencyResolver, localComponentRegistry, vcsMappingsInternal, vcsMappingFactory, versionControlSystemFactory);
+        File sharedWorkingDir = projectRegistry.getRootProject().getBuildDir();
+        return new VcsDependencyResolver(includedBuildRegistry, sharedWorkingDir, projectDependencyResolver, nestedBuildFactory, localComponentRegistry, vcsMappingsInternal, vcsMappingFactory, versionControlSystemFactory);
     }
 
     ResolverProviderFactory createVcsResolverProviderFactory(VcsDependencyResolver resolver) {

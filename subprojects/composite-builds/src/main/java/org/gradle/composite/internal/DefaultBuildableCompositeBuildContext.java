@@ -43,15 +43,15 @@ import java.util.Set;
 public class DefaultBuildableCompositeBuildContext implements CompositeBuildContext {
     private static final Logger LOGGER = LoggerFactory.getLogger(DefaultBuildableCompositeBuildContext.class);
 
-    private final IncludedBuilds includedBuilds;
+    private final IncludedBuildRegistry includedBuildRegistry;
     private final Set<File> configuredBuilds = Sets.newHashSet();
     private final Set<Pair<ModuleVersionIdentifier, ProjectComponentIdentifier>> provided = Sets.newHashSet();
     private final Map<ProjectComponentIdentifier, RegisteredProject> projectMetadata = Maps.newHashMap();
     private final List<Action<DependencySubstitution>> substitutionRules = Lists.newArrayList();
     private final ImmutableModuleIdentifierFactory moduleIdentifierFactory;
 
-    public DefaultBuildableCompositeBuildContext(IncludedBuilds includedBuilds, ImmutableModuleIdentifierFactory moduleIdentifierFactory) {
-        this.includedBuilds = includedBuilds;
+    public DefaultBuildableCompositeBuildContext(IncludedBuildRegistry includedBuildRegistry, ImmutableModuleIdentifierFactory moduleIdentifierFactory) {
+        this.includedBuildRegistry = includedBuildRegistry;
         this.moduleIdentifierFactory = moduleIdentifierFactory;
     }
 
@@ -137,7 +137,7 @@ public class DefaultBuildableCompositeBuildContext implements CompositeBuildCont
     }
 
     private IncludedBuildInternal getBuild(ProjectComponentIdentifier projectId) {
-        return (IncludedBuildInternal) includedBuilds.getBuild(projectId.getBuild().getName());
+        return (IncludedBuildInternal) includedBuildRegistry.getBuild(projectId.getBuild().getName());
     }
 
     private void ensureRegistered(IncludedBuildInternal build) {
