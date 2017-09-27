@@ -30,7 +30,7 @@ import java.util.Map;
 public class DefaultIncludedBuildRegistry implements IncludedBuildRegistry {
     private final IncludedBuildFactory includedBuildFactory;
     // TODO: Locking around this
-    private final Map<File, IncludedBuild> includedBuilds = Maps.newHashMap();
+    private final Map<File, ConfigurableIncludedBuild> includedBuilds = Maps.newLinkedHashMap();
 
 
     public DefaultIncludedBuildRegistry(IncludedBuildFactory includedBuildFactory) {
@@ -44,13 +44,17 @@ public class DefaultIncludedBuildRegistry implements IncludedBuildRegistry {
 
     @Override
     public Map<File, IncludedBuild> getIncludedBuilds() {
-        return Collections.unmodifiableMap(includedBuilds);
+        return Collections.<File, IncludedBuild>unmodifiableMap(includedBuilds);
     }
 
     @Override
     public ConfigurableIncludedBuild registerBuild(File buildDirectory, NestedBuildFactory nestedBuildFactory) {
-        ConfigurableIncludedBuild includedBuild = includedBuildFactory.createBuild(buildDirectory, nestedBuildFactory);
-        includedBuilds.put(buildDirectory, includedBuild);
+        // TODO: synchronization
+        ConfigurableIncludedBuild includedBuild = includedBuilds.get(buildDirectory);
+        if (includedBuild == null) {
+            includedBuild = includedBuildFactory.createBuild(buildDirectory, nestedBuildFactory);
+            includedBuilds.put(buildDirectory, includedBuild);
+        }
         return includedBuild;
     }
 

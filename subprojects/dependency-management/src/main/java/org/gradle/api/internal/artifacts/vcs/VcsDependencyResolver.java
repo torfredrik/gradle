@@ -54,7 +54,7 @@ public class VcsDependencyResolver implements DependencyToComponentIdResolver, C
     private final IncludedBuildRegistry includedBuildRegistry;
 
     // TODO: This shouldn't reach into ServiceRegistry
-    public VcsDependencyResolver(IncludedBuildRegistry includedBuildRegistry, File sharedWorkingDir, ProjectDependencyResolver projectDependencyResolver, NestedBuildFactory nestedBuildFactory, LocalComponentRegistry localComponentRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
+    public VcsDependencyResolver(IncludedBuildRegistry includedBuildRegistry, File baseWorkingDir, ProjectDependencyResolver projectDependencyResolver, NestedBuildFactory nestedBuildFactory, LocalComponentRegistry localComponentRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
         this.includedBuildRegistry = includedBuildRegistry;
         this.projectDependencyResolver = projectDependencyResolver;
         this.nestedBuildFactory = nestedBuildFactory;
@@ -62,13 +62,13 @@ public class VcsDependencyResolver implements DependencyToComponentIdResolver, C
         this.vcsMappingsInternal = vcsMappingsInternal;
         this.vcsMappingFactory = vcsMappingFactory;
         this.versionControlSystemFactory = versionControlSystemFactory;
-        this.baseWorkingDir = new File(sharedWorkingDir, "vcsWorkingDirs");
+        this.baseWorkingDir = baseWorkingDir;
     }
 
     @Override
     public void resolve(DependencyMetadata dependency, BuildableComponentIdResolveResult result) {
         VcsMappingInternal vcsMappingInternal = getVcsMapping(dependency);
-        if (vcsMappingInternal != null) {
+        if (vcsMappingInternal != null && baseWorkingDir!=null) {
             vcsMappingsInternal.getVcsMappingRule().execute(vcsMappingInternal);
 
             // TODO: Need failure handling, e.g., cannot clone repository

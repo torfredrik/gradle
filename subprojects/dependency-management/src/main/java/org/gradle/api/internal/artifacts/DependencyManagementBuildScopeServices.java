@@ -347,10 +347,13 @@ class DependencyManagementBuildScopeServices {
     }
 
     VcsDependencyResolver createVcsDependencyResolver(ProjectDependencyResolver projectDependencyResolver, NestedBuildFactory nestedBuildFactory, IncludedBuildRegistry includedBuildRegistry, LocalComponentRegistry localComponentRegistry, ProjectRegistry<ProjectInternal> projectRegistry, VcsMappingsInternal vcsMappingsInternal, VcsMappingFactory vcsMappingFactory, VersionControlSystemFactory versionControlSystemFactory) {
-        // TODO: Explode?
         // TODO: Share working directories across included builds
-        File sharedWorkingDir = projectRegistry.getRootProject().getBuildDir();
-        return new VcsDependencyResolver(includedBuildRegistry, sharedWorkingDir, projectDependencyResolver, nestedBuildFactory, localComponentRegistry, vcsMappingsInternal, vcsMappingFactory, versionControlSystemFactory);
+        ProjectInternal rootProject = projectRegistry.getRootProject();
+        File baseWorkingDir = null;
+        if (rootProject!=null) {
+            baseWorkingDir = new File(rootProject.getBuildDir(), "vcsWorkingDirs");
+        }
+        return new VcsDependencyResolver(includedBuildRegistry, baseWorkingDir, projectDependencyResolver, nestedBuildFactory, localComponentRegistry, vcsMappingsInternal, vcsMappingFactory, versionControlSystemFactory);
     }
 
     ResolverProviderFactory createVcsResolverProviderFactory(VcsDependencyResolver resolver) {

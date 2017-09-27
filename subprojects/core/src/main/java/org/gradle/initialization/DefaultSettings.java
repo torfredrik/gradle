@@ -268,7 +268,7 @@ public class DefaultSettings extends AbstractPluginAware implements SettingsInte
 
     @Override
     public void includeBuild(Object rootProject, Action<ConfigurableIncludedBuild> configuration) {
-        if (gradle.getParent() != null) {
+        if (gradle.getParent() == null) {
             File projectDir = getFileResolver().resolve(rootProject);
             ConfigurableIncludedBuild includedBuild = getIncludedBuildRegistry().registerBuild(projectDir, getNestedBuildFactory());
             configuration.execute(includedBuild);
