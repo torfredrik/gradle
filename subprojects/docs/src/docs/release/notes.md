@@ -5,7 +5,6 @@ Here are the new features introduced in this Gradle release.
 <!--
 IMPORTANT: if this is a patch release, ensure that a prominent link is included in the foreword to all releases of the same minor stream.
 Add-->
-
 ### Timeouts for HTTP requests
 
 Previous versions of Gradle did not define a timeout for any HTTP requests. Under certain conditions e.g. network problems, unresponsive or overloaded servers this behavior could lead to hanging connections.
@@ -155,6 +154,33 @@ There are better ways for re-using task logic, for example by using [task depend
 - `AbstractNativeCompileTask.compilerArgs` changed type to `ListProperty<String>` from `List<String>`.
 - `AbstractNativeCompileTask.objectFileDir` changed type to `DirectoryVar` from `File`.
 - `AbstractLinkTask.linkerArgs` changed type to `ListProperty<String>` from `List<String>`.
+
+### Blacklist repository on `IOException`s 
+
+In the event of a timeout (or any `IOException`s which are not caused by error HTTP status code), Gradle will skip subsequent connections to the same repository for the duration of the build. 
+The output of a build clearly indicates which request was skipped.
+
+```
+* What went wrong:
+Could not resolve all files for configuration ':deps'.
+> Could not resolve group:a:1.0.
+  Required by:
+      project :
+   > Could not resolve group:a:1.0.
+      > Could not get resource 'http://localhost:54347/repo/group/a/1.0/a-1.0.pom'.
+         > Could not GET 'http://localhost:54347/repo/group/a/1.0/a-1.0.pom'.
+            > Read timed out
+> Could not resolve group:b:1.0.
+  Required by:
+      project :
+   > Skipped due to earlier error
+```
+
+### Dependency resolution order
+
+Previous versions of Gradle would fall through to the next repository if resolution in one repository failed.
+This behaviour might cause potentially indeterministic resolution result. Now Gradle will explicitly rethrow exceptions which occur in dependency resolution instead of quietly continue to the next repository.
+This may break existed build. In this case, you should fix the error to avoid build indeterminism.
 
 ## External contributions
 
