@@ -892,6 +892,26 @@ Currently supported authentication schemes are:
 |===
 
 
+[[sub:http_timeout]]
+===== Configuring HTTP timeout
+
+Under certain conditions you may want to set timeout for HTTP requests. The following system properties can be used:
+
+.HTTP timeout configuration
+[cols="a,a", options="header"]
+|===
+| Property
+| Description
+
+| http.connectionTimeout
+| Timeout in milliseconds when requesting a connection from the underlying connection manager.
+
+| http.socketTimeout
+| The socket timeout in milliseconds, which is the timeout for waiting for data or, put differently, a maximum period inactivity between two consecutive data packets).
+
+|===
+
+
 [[sub:preemptive_authentication]]
 ===== Using preemptive authentication
 
