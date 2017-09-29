@@ -211,9 +211,9 @@ public class SingleMessageLogger {
         }
     }
 
-    public static void nagUserOfDeprecatedThing(String thing) {
+    public static void nagUserOfDeprecatedThing(String thing, String explanation) {
         if (isEnabled()) {
-            nagUserOfDeprecated(String.format("%s. This", thing));
+            nagUserWith(String.format("%s. This %s. %s.", thing, getDeprecationMessage(), explanation));
         }
     }
 

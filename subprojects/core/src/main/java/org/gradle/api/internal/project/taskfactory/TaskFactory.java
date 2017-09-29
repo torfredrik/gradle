@@ -108,7 +108,7 @@ public class TaskFactory implements ITaskFactory {
                     "Cannot create task of type '%s' as it does not implement the Task interface.",
                     type.getSimpleName()));
         }
-        NameValidator.validate(name);
+        NameValidator.validate(name, "task name", "Please define a valid task name in your build file");
 
         final Class<? extends Task> generatedType;
         if (type.isAssignableFrom(DefaultTask.class)) {

@@ -32,7 +32,8 @@ class NameValidationIntegrationTest extends AbstractIntegrationSpec {
         succeeds 'help'
 
         then:
-        assertPrintsForbiddenCharacterDeprecationMessage('this::is::a::namespace')
+        assertPrintsForbiddenCharacterDeprecationMessage('project name', 'this::is::a::namespace',
+            "If you attempt to include a subproject from a nested directory, please use ':' as project delimiter (and not '/') or set 'projectDir' to modify the physical project path.")
     }
 
     def "subproject names should not contain forbidden characters"() {
@@ -44,8 +45,9 @@ class NameValidationIntegrationTest extends AbstractIntegrationSpec {
         succeeds 'help'
 
         then:
-        assertPrintsForbiddenCharacterDeprecationMessage('name with spaces')
-     }
+        assertPrintsForbiddenCharacterDeprecationMessage('project name', 'name with spaces',
+            "If you attempt to include a subproject from a nested directory, please use ':' as project delimiter (and not '/') or set 'projectDir' to modify the physical project path.")
+    }
 
     def "task names should not contain forbidden characters"() {
         given:
@@ -56,7 +58,8 @@ class NameValidationIntegrationTest extends AbstractIntegrationSpec {
         succeeds 'this/is/a/hierarchy'
 
         then:
-        assertPrintsForbiddenCharacterDeprecationMessage("this/is/a/hierarchy")
+        assertPrintsForbiddenCharacterDeprecationMessage('task name',"this/is/a/hierarchy",
+            "Please define a valid task name in your build file.")
     }
 
     def "configuration names should not contain forbidden characters"() {
@@ -68,7 +71,8 @@ class NameValidationIntegrationTest extends AbstractIntegrationSpec {
         succeeds 'help'
 
         then:
-        assertPrintsForbiddenCharacterDeprecationMessage("some/really.\\strange name:")
+        assertPrintsForbiddenCharacterDeprecationMessage('name', "some/really.\\strange name:",
+            "Please define a valid name in your build file.")
     }
 
     def "project names should not contain start with ."() {
@@ -81,7 +85,8 @@ class NameValidationIntegrationTest extends AbstractIntegrationSpec {
         succeeds 'help'
 
         then:
-        assertPrintsForbiddenStartOrEndCharacterDeprecationMessage('.problematic-name')
+        assertPrintsForbiddenStartOrEndCharacterDeprecationMessage('project name', '.problematic-name',
+            "If you attempt to include a subproject from a nested directory, please use ':' as project delimiter (and not '/') or set 'projectDir' to modify the physical project path.")
     }
 
     def "project names should not end with ."() {
@@ -94,7 +99,8 @@ class NameValidationIntegrationTest extends AbstractIntegrationSpec {
         succeeds 'help'
 
         then:
-        assertPrintsForbiddenStartOrEndCharacterDeprecationMessage('problematic-name.')
+        assertPrintsForbiddenStartOrEndCharacterDeprecationMessage('project name', 'problematic-name.',
+            "If you attempt to include a subproject from a nested directory, please use ':' as project delimiter (and not '/') or set 'projectDir' to modify the physical project path.")
     }
 
     def "does not assign an invalid project name from folder names"() {
@@ -109,7 +115,8 @@ class NameValidationIntegrationTest extends AbstractIntegrationSpec {
 
         then:
         //output.contains("_folder__name")
-        assertPrintsForbiddenStartOrEndCharacterDeprecationMessage('.folder  name')
+        assertPrintsForbiddenCharacterDeprecationMessage('project name', '.folder  name',
+            "If you attempt to include a subproject from a nested directory, please use ':' as project delimiter (and not '/') or set 'projectDir' to modify the physical project path.")
     }
 
     def "does not print deprecation warning when project name overrides an invalid folder name"() {
@@ -139,14 +146,14 @@ class NameValidationIntegrationTest extends AbstractIntegrationSpec {
 
         then:
         //output.contains("_folder__name_")
-        assertPrintsForbiddenStartOrEndCharacterDeprecationMessage('.folder: name.')
+        assertPrintsForbiddenCharacterDeprecationMessage('project name','.folder: name.')
     }
 
-    void assertPrintsForbiddenCharacterDeprecationMessage(String deprecatedName) {
-        output.contains("The name '$deprecatedName' contains at least one of the following characters: [ , /, \\, :, <, >, \", ?, *]. This has been deprecated and is scheduled to be removed in Gradle 5.0")
+    void assertPrintsForbiddenCharacterDeprecationMessage(String nameDescription, String deprecatedName, String suggestion = '') {
+        assert output.contains("The $nameDescription '$deprecatedName' contains at least one of the following characters: [ , /, \\, :, <, >, \", ?, *, |]. This has been deprecated and is scheduled to be removed in Gradle 5.0. $suggestion")
     }
 
-    void assertPrintsForbiddenStartOrEndCharacterDeprecationMessage(String deprecatedName) {
-        output.contains("The name '$deprecatedName' starts or ends with a '.'. This has been deprecated and is scheduled to be removed in Gradle 5.0")
+    void assertPrintsForbiddenStartOrEndCharacterDeprecationMessage(String nameDescription, String deprecatedName, String suggestion = '') {
+        assert output.contains("The $nameDescription '$deprecatedName' starts or ends with a '.'. This has been deprecated and is scheduled to be removed in Gradle 5.0. $suggestion")
     }
 }

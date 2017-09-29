@@ -31,6 +31,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 public class DefaultProjectDescriptor implements ProjectDescriptor, ProjectIdentifier {
+    public static final String INVALID_NAME_IN_INCLUDE_HINT = "If you attempt to include a subproject from a nested directory, please use ':' as project delimiter (and not '/') or set 'projectDir' to modify the physical project path";
 
     private static final String BUILD_SCRIPT_BASENAME = "build";
 
@@ -87,7 +88,8 @@ public class DefaultProjectDescriptor implements ProjectDescriptor, ProjectIdent
     }
 
     public void setName(String name) {
-        NameValidator.validate(name);
+        NameValidator.validate(name, "project name",
+            INVALID_NAME_IN_INCLUDE_HINT);
         projectDescriptorRegistry.changeDescriptorPath(path, path(name));
         this.name = name;
     }
